@@ -167,11 +167,11 @@
         </table>
         <button type="button" class="button" @click="addVacation">Add Vacation Range</button>
 
-        <!-- Working Days Left -->
-        <div v-if="workingDaysLeft !== null" class="result-title">
+        <!-- Working Days Left (Always visible, defaults to 0) -->
+        <div class="result-title">
             Working Days Left
         </div>
-        <div v-if="workingDaysLeft !== null" class="result">
+        <div class="result">
             {{ workingDaysLeft }}
         </div>
     </div>
@@ -218,7 +218,8 @@
                 endDate: '',
                 // Start with an empty vacation array
                 vacations: [],
-                workingDaysLeft: null,
+                // Default to 0 so "Working Days Left" always shows
+                workingDaysLeft: 0,
                 today: new Date().toISOString().split('T')[0],
                 currentMonth: new Date(),
                 dayHeaders: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -272,6 +273,7 @@
             }
         },
         watch: {
+            // Whenever startDate, endDate, or vacations change, recalc working days
             startDate: 'calculateWorkingDays',
             endDate: 'calculateWorkingDays',
             vacations: {
@@ -318,7 +320,11 @@
                 return new Date(year, month - 1, day).toISOString().split('T')[0];
             },
             calculateWorkingDays() {
-                if (!this.startDate || !this.endDate) return;
+                // If start or end are missing, show 0 but still update workingDaysLeft
+                if (!this.startDate || !this.endDate) {
+                    this.workingDaysLeft = 0;
+                    return;
+                }
                 const start = new Date(this.startDate);
                 const end = new Date(this.endDate);
                 let count = 0;
@@ -334,7 +340,9 @@
                     if (!vac.start || !vac.end) continue;
                     const vacStart = new Date(vac.start);
                     const vacEnd = new Date(vac.end);
-                    if (date >= vacStart && date <= vacEnd) return true;
+                    if (date >= vacStart && date <= vacEnd) {
+                        return true;
+                    }
                 }
                 return false;
             },
@@ -375,6 +383,8 @@
         mounted() {
             this.startDate = this.today;
             this.endDate = '';
+            // Show initial calculation as 0
+            this.workingDaysLeft = 0;
         }
     });
 
