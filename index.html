@@ -131,7 +131,7 @@
 <div id="app" class="main-container">
     <!-- Left Side: Global Dates & Vacation Ranges -->
     <div class="form-container">
-        <!-- Global Start Date & End Date -->
+        <!-- Global Start & End Dates -->
         <div class="form-group">
             <label>Start Date:</label>
             <input type="date" v-model="startDate" required />
@@ -167,25 +167,35 @@
         </table>
         <button type="button" class="button" @click="addVacation">Add Vacation Range</button>
 
-        <!-- Working Days Left (Always visible, defaults to 0) -->
+        <!-- Dropdown to select the metric (Working Days, Total Days, etc.) -->
+        <div class="form-group" style="margin-top: 30px;">
+            <label for="metricSelect"><strong>Choose Metric:</strong></label>
+            <select id="metricSelect" v-model="selectedMetric" style="width:100%; padding: 6px; box-sizing:border-box;">
+                <option value="workingDays">Working Days Left</option>
+                <option value="totalDays">Total Days Left</option>
+                <option value="workingHours">Working Hours Left</option>
+                <option value="totalHours">Total Hours Left</option>
+                <option value="totalSeconds">Total Seconds Left</option>
+                <option value="weeksLeft">Weeks Left</option>
+            </select>
+        </div>
+
+        <!-- Always show the result (defaults to 0) -->
         <div class="result-title">
-            Working Days Left
+            {{ metricLabel }}
         </div>
         <div class="result">
-            {{ workingDaysLeft }}
+            {{ displayValue }}
         </div>
     </div>
 
     <!-- Right Side: Monthly Calendar -->
     <div class="monthly-calendar">
-        <!-- Calendar Header with Nav Buttons + Title on the same line -->
         <div class="calendar-header">
             <button type="button" class="button" @click="previousMonth">&lt;</button>
             <h2>Monthly Calendar: {{ monthYear }}</h2>
             <button type="button" class="button" @click="nextMonth">&gt;</button>
         </div>
-
-        <!-- Single .calendar container with day-of-week headers + days in 7 columns -->
         <div class="calendar">
             <!-- Day-of-week headers -->
             <div
@@ -200,9 +210,9 @@
                     v-for="(dayObj, idx) in calendarDays"
                     :key="'day-' + idx"
                     :class="[
-                'calendar-day',
-                { 'other-month': dayObj.otherMonth, 'today': dayObj.isToday }
-              ]"
+                  'calendar-day',
+                  { 'other-month': dayObj.otherMonth, 'today': dayObj.isToday }
+                ]"
             >
                 {{ dayObj.date.getDate() }}
             </div>
@@ -216,11 +226,19 @@
             return {
                 startDate: '',
                 endDate: '',
-                // Start with an empty vacation array
+                // Start empty for vacations:
                 vacations: [],
-                // Default to 0 so "Working Days Left" always shows
+                // We store results for each metric in data so we can display them quickly
                 workingDaysLeft: 0,
+                totalDaysLeft: 0,
+                workingHoursLeft: 0,
+                totalHoursLeft: 0,
+                totalSecondsLeft: 0,
+                weeksLeft: 0,
+
+                selectedMetric: 'workingDays', // default
                 today: new Date().toISOString().split('T')[0],
+
                 currentMonth: new Date(),
                 dayHeaders: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
             };
@@ -258,9 +276,9 @@
                 }
 
                 // Fill leftover cells from next month
-                const leftover = 7 - (days.length % 7);
-                if (leftover < 7) {
-                    for (let i = 1; i <= leftover; i++) {
+                const leftoverCells = 7 - (days.length % 7);
+                if (leftoverCells < 7) {
+                    for (let i = 1; i <= leftoverCells; i++) {
                         const date = new Date(year, month + 1, i);
                         days.push({
                             date,
@@ -270,14 +288,38 @@
                     }
                 }
                 return days;
+            },
+            // The dropdown label
+            metricLabel() {
+                switch (this.selectedMetric) {
+                    case 'workingDays':   return 'Working Days Left';
+                    case 'workingHours':  return 'Working Hours Left';
+                    case 'totalDays':     return 'Total Days Left';
+                    case 'totalHours':    return 'Total Hours Left';
+                    case 'totalSeconds':  return 'Total Seconds Left';
+                    case 'weeksLeft':     return 'Weeks Left';
+                    default:              return 'Metric';
+                }
+            },
+            // The numeric value that we display, based on the dropdown
+            displayValue() {
+                switch (this.selectedMetric) {
+                    case 'workingDays':   return this.workingDaysLeft;
+                    case 'workingHours':  return this.workingHoursLeft;
+                    case 'totalDays':     return this.totalDaysLeft;
+                    case 'totalHours':    return this.totalHoursLeft;
+                    case 'totalSeconds':  return this.totalSecondsLeft;
+                    case 'weeksLeft':     return this.weeksLeft;
+                    default:              return 0;
+                }
             }
         },
         watch: {
-            // Whenever startDate, endDate, or vacations change, recalc working days
-            startDate: 'calculateWorkingDays',
-            endDate: 'calculateWorkingDays',
+            // Recalculate metrics whenever these change
+            startDate: 'calcAllMetrics',
+            endDate: 'calcAllMetrics',
             vacations: {
-                handler: 'calculateWorkingDays',
+                handler: 'calcAllMetrics',
                 deep: true
             }
         },
@@ -319,22 +361,60 @@
                 let day = lastDay.getDate() - ((lastWeekday - weekday + 7) % 7);
                 return new Date(year, month - 1, day).toISOString().split('T')[0];
             },
-            calculateWorkingDays() {
-                // If start or end are missing, show 0 but still update workingDaysLeft
+
+            // Master method: compute *all* metrics so we can show them in the dropdown
+            calcAllMetrics() {
+                // 1) If start/end are missing, set everything to 0
                 if (!this.startDate || !this.endDate) {
                     this.workingDaysLeft = 0;
+                    this.totalDaysLeft = 0;
+                    this.workingHoursLeft = 0;
+                    this.totalHoursLeft = 0;
+                    this.totalSecondsLeft = 0;
+                    this.weeksLeft = 0;
                     return;
                 }
+
                 const start = new Date(this.startDate);
                 const end = new Date(this.endDate);
-                let count = 0;
+
+                // 2) Compute totalDaysLeft (no skipping weekends or vacations)
+                //    If end < start, totalDaysLeft = 0
+                let totalDays = 0;
+                if (end >= start) {
+                    totalDays = Math.floor((end - start) / (1000 * 3600 * 24)) + 1;
+                }
+
+                // 3) Compute workingDaysLeft (skip weekends, US holidays, and vacations)
+                let workingDays = 0;
                 for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
                     if (this.isWorkingDay(d) && !this.isVacationDay(d)) {
-                        count++;
+                        workingDays++;
                     }
                 }
-                this.workingDaysLeft = count;
+
+                // 4) Working hours = 8 hours per working day (example assumption)
+                let workingHours = workingDays * 8;
+
+                // 5) Total hours = totalDays * 24
+                let totalHours = totalDays * 24;
+
+                // 6) Total seconds = totalHours * 3600
+                let totalSeconds = totalHours * 3600;
+
+                // 7) Weeks left = floor(totalDays / 7)
+                let weeksLeft = Math.floor(totalDays / 7);
+
+                // Save them
+                this.workingDaysLeft = workingDays;
+                this.totalDaysLeft = totalDays;
+                this.workingHoursLeft = workingHours;
+                this.totalHoursLeft = totalHours;
+                this.totalSecondsLeft = totalSeconds;
+                this.weeksLeft = weeksLeft;
             },
+
+            // Checks if date is in any user-defined vacation interval
             isVacationDay(date) {
                 for (const vac of this.vacations) {
                     if (!vac.start || !vac.end) continue;
@@ -346,12 +426,14 @@
                 }
                 return false;
             },
+
             addVacation() {
                 this.vacations.push({ start: '', end: '' });
             },
             removeVacation(index) {
                 this.vacations.splice(index, 1);
             },
+            // Auto-set end date to next day if user picks a start date
             onVacationChange(index) {
                 const vac = this.vacations[index];
                 if (vac.start) {
@@ -363,8 +445,9 @@
                         this.vacations[index].end = formatted;
                     }
                 }
-                this.calculateWorkingDays();
+                this.calcAllMetrics();
             },
+
             previousMonth() {
                 this.currentMonth = new Date(
                     this.currentMonth.getFullYear(),
@@ -383,8 +466,8 @@
         mounted() {
             this.startDate = this.today;
             this.endDate = '';
-            // Show initial calculation as 0
-            this.workingDaysLeft = 0;
+            // Initialize all metrics to 0
+            this.calcAllMetrics();
         }
     });
 
