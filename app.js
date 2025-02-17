@@ -1,4 +1,52 @@
+// GoogleSignInButton component polls for google.accounts.id availability
+const GoogleSignInButton = {
+    template: `<div ref="buttonContainer"></div>`,
+    mounted() {
+        const renderButton = () => {
+            if (
+                window.google &&
+                google.accounts &&
+                google.accounts.id
+            ) {
+                google.accounts.id.renderButton(
+                    this.$refs.buttonContainer,
+                    { theme: 'outline', size: 'large' }
+                );
+                clearInterval(this.checkInterval);
+            }
+        };
+        renderButton();
+        if (
+            !window.google ||
+            !google.accounts ||
+            !google.accounts.id
+        ) {
+            // Check every 100ms until the API is available.
+            this.checkInterval = setInterval(renderButton, 100);
+        }
+    },
+    beforeUnmount() {
+        if (this.checkInterval) clearInterval(this.checkInterval);
+    }
+};
+
+// UserProfile component displays the signed‑in user's info
+const UserProfile = {
+    props: ['user'],
+    template: `
+    <div class="user-section">
+      <img :src="user.picture" alt="Profile" class="user-pic" referrerpolicy="no-referrer">
+      <span class="user-name">{{ user.name }}</span>
+      <button @click="$emit('sign-out')" class="button">Sign Out</button>
+    </div>
+  `
+};
+
 const app = Vue.createApp({
+    components: {
+        GoogleSignInButton,
+        UserProfile
+    },
     data() {
         return {
             startDate: "",
@@ -22,13 +70,20 @@ const app = Vue.createApp({
             today: new Date().toISOString().split("T")[0],
             currentMonth: new Date(),
             dayHeaders: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            user: null, // Stores the user object (name, email, picture, etc.)
+            user: null, // The user object (if signed in)
             errorMessage: null
         };
     },
     computed: {
+        // Reactive computed property to determine if a user is signed in
+        isSignedIn() {
+            return this.user !== null;
+        },
         monthYear() {
-            return this.currentMonth.toLocaleString("default", { month: "long", year: "numeric" });
+            return this.currentMonth.toLocaleString("default", {
+                month: "long",
+                year: "numeric"
+            });
         },
         calendarDays() {
             const yearValue = this.currentMonth.getFullYear();
@@ -38,13 +93,12 @@ const app = Vue.createApp({
             const days = [];
             const now = new Date();
 
-            // Fill leading days (previous month)
+            // Leading days from previous month.
             for (let dayIndex = 0; dayIndex < firstDay.getDay(); dayIndex++) {
                 const tempDate = new Date(yearValue, monthValue, -dayIndex);
                 days.unshift({ date: tempDate, otherMonth: true, isToday: false });
             }
-
-            // Fill current month
+            // Days of the current month.
             for (let dateNumber = 1; dateNumber <= lastDay.getDate(); dateNumber++) {
                 const tempDate = new Date(yearValue, monthValue, dateNumber);
                 days.push({
@@ -53,8 +107,7 @@ const app = Vue.createApp({
                     isToday: tempDate.toDateString() === now.toDateString()
                 });
             }
-
-            // Fill trailing days (next month)
+            // Trailing days from the next month.
             const leftoverCells = 7 - (days.length % 7);
             if (leftoverCells < 7) {
                 for (let dateNumber = 1; dateNumber <= leftoverCells; dateNumber++) {
@@ -104,11 +157,11 @@ const app = Vue.createApp({
     },
     watch: {
         // Watch startDate and endDate. When they change, update metrics and save the dates.
-        startDate(newVal) {
+        startDate() {
             this.calcAllMetrics();
             this.saveDates();
         },
-        endDate(newVal) {
+        endDate() {
             this.calcAllMetrics();
             this.saveDates();
         },
@@ -157,9 +210,7 @@ const app = Vue.createApp({
             localStorage.removeItem("dates");
             google.accounts.id.disableAutoSelect();
         },
-
         handleCredentialResponse(response) {
-            // Handle the Google sign-in flow.
             try {
                 const decodedToken = this.parseJwt(response.credential);
                 if (!decodedToken) {
@@ -168,8 +219,6 @@ const app = Vue.createApp({
                 this.user = decodedToken;
                 this.errorMessage = null;
                 localStorage.setItem("user", JSON.stringify(decodedToken));
-
-                // With a logged-in user, restore dates and update metrics.
                 this.restoreDates();
                 this.calcAllMetrics();
             } catch (error) {
@@ -177,26 +226,20 @@ const app = Vue.createApp({
                 console.error("Authentication error:", error);
             }
         },
-
         parseJwt(token) {
             try {
-                return JSON.parse(atob(token.split('.')[1]));
+                return JSON.parse(atob(token.split(".")[1]));
             } catch (error) {
                 return null;
             }
         },
-
         initializeGoogleSignIn() {
             google.accounts.id.initialize({
-                client_id: '74022320040-5aaq169bkriqitue3dcqi8g2o3vk5q16.apps.googleusercontent.com',
+                client_id:
+                    "74022320040-5aaq169bkriqitue3dcqi8g2o3vk5q16.apps.googleusercontent.com",
                 callback: this.handleCredentialResponse.bind(this)
             });
-            google.accounts.id.renderButton(
-                document.getElementById('googleSignInButton'),
-                { theme: 'outline', size: 'large' }
-            );
         },
-
         calcAllMetrics() {
             if (!this.startDate || !this.endDate) {
                 this.workingDaysLeft = 0;
@@ -211,10 +254,15 @@ const app = Vue.createApp({
             const end = new Date(this.endDate);
             let totalDays = 0;
             if (end >= start) {
-                totalDays = Math.floor((end - start) / (1000 * 3600 * 24)) + 1;
+                totalDays =
+                    Math.floor((end - start) / (1000 * 3600 * 24)) + 1;
             }
             let workingDays = 0;
-            for (let tempDate = new Date(start); tempDate <= end; tempDate.setDate(tempDate.getDate() + 1)) {
+            for (
+                let tempDate = new Date(start);
+                tempDate <= end;
+                tempDate.setDate(tempDate.getDate() + 1)
+            ) {
                 if (this.isWorkingDay(tempDate) && !this.isVacationDay(tempDate)) {
                     workingDays++;
                 }
@@ -226,47 +274,46 @@ const app = Vue.createApp({
             this.totalSecondsLeft = this.totalHoursLeft * 3600;
             this.weeksLeft = Math.floor(totalDays / 7);
         },
-
         isWorkingDay(dateValue) {
             const dayOfWeek = dateValue.getDay();
             const yearValue = dateValue.getFullYear();
             const holidays = this.getUSHolidays(yearValue);
             const dateStr = dateValue.toISOString().split("T")[0];
-            return dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.includes(dateStr);
+            return (
+                dayOfWeek !== 0 &&
+                dayOfWeek !== 6 &&
+                !holidays.includes(dateStr)
+            );
         },
-
         getUSHolidays(yearValue) {
             const holidays = [
-                `${yearValue}-01-01`, // New Year's Day
-                this.getNthWeekdayOfMonth(yearValue, 1, 1, 3), // MLK Day (3rd Monday in January)
-                this.getNthWeekdayOfMonth(yearValue, 2, 1, 3), // Presidents Day (3rd Monday in February)
-                this.getLastWeekdayOfMonth(yearValue, 5, 1),   // Memorial Day (Last Monday in May)
-                `${yearValue}-06-19`, // Juneteenth
-                `${yearValue}-07-04`, // Independence Day
-                this.getNthWeekdayOfMonth(yearValue, 9, 1, 1), // Labor Day (1st Monday in September)
-                this.getNthWeekdayOfMonth(yearValue, 10, 1, 2),// Columbus Day (2nd Monday in October)
-                `${yearValue}-11-11`, // Veterans Day
-                this.getNthWeekdayOfMonth(yearValue, 11, 4, 4),// Thanksgiving (4th Thursday in November)
-                `${yearValue}-12-25`  // Christmas
+                `${yearValue}-01-01`,
+                this.getNthWeekdayOfMonth(yearValue, 1, 1, 3),
+                this.getNthWeekdayOfMonth(yearValue, 2, 1, 3),
+                this.getLastWeekdayOfMonth(yearValue, 5, 1),
+                `${yearValue}-06-19`,
+                `${yearValue}-07-04`,
+                this.getNthWeekdayOfMonth(yearValue, 9, 1, 1),
+                this.getNthWeekdayOfMonth(yearValue, 10, 1, 2),
+                `${yearValue}-11-11`,
+                this.getNthWeekdayOfMonth(yearValue, 11, 4, 4),
+                `${yearValue}-12-25`
             ];
-
-            // Handle weekend holidays: adjust if necessary.
             const adjustedHolidays = holidays.map(holiday => {
                 const date = new Date(holiday);
                 const day = date.getDay();
-                if (day === 6) { // Saturday: observe Friday
+                if (day === 6) {
                     date.setDate(date.getDate() - 1);
-                    return date.toISOString().split('T')[0];
+                    return date.toISOString().split("T")[0];
                 }
-                if (day === 0) { // Sunday: observe Monday
+                if (day === 0) {
                     date.setDate(date.getDate() + 1);
-                    return date.toISOString().split('T')[0];
+                    return date.toISOString().split("T")[0];
                 }
                 return holiday;
             });
             return adjustedHolidays;
         },
-
         getNthWeekdayOfMonth(yearValue, monthNumber, weekdayNumber, occurrenceNumber) {
             const date = new Date(yearValue, monthNumber - 1, 1);
             let count = 0;
@@ -278,35 +325,33 @@ const app = Vue.createApp({
                     date.setDate(date.getDate() + 1);
                 }
             }
-            return date.toISOString().split('T')[0];
+            return date.toISOString().split("T")[0];
         },
-
         getLastWeekdayOfMonth(yearValue, monthNumber, weekdayNumber) {
             const tempDate = new Date(yearValue, monthNumber, 0);
             const tempWeekday = tempDate.getDay();
             const difference = (tempWeekday - weekdayNumber + 7) % 7;
             const dayInMonth = tempDate.getDate() - difference;
-            return new Date(yearValue, monthNumber - 1, dayInMonth).toISOString().split("T")[0];
+            return new Date(yearValue, monthNumber - 1, dayInMonth)
+                .toISOString()
+                .split("T")[0];
         },
-
         isVacationDay(dateValue) {
             for (const vac of this.vacations) {
                 if (!vac.start || !vac.end) continue;
                 const vacationStart = new Date(vac.start);
                 const vacationEnd = new Date(vac.end);
-                if (dateValue >= vacationStart && dateValue <= vacationEnd) return true;
+                if (dateValue >= vacationStart && dateValue <= vacationEnd)
+                    return true;
             }
             return false;
         },
-
         addVacation() {
             this.vacations.push({ start: "", end: "" });
         },
-
         removeVacation(indexValue) {
             this.vacations.splice(indexValue, 1);
         },
-
         onVacationChange(indexValue) {
             const vac = this.vacations[indexValue];
             if (vac.start) {
@@ -320,7 +365,6 @@ const app = Vue.createApp({
             }
             this.calcAllMetrics();
         },
-
         previousMonth() {
             this.currentMonth = new Date(
                 this.currentMonth.getFullYear(),
@@ -328,7 +372,6 @@ const app = Vue.createApp({
                 1
             );
         },
-
         nextMonth() {
             this.currentMonth = new Date(
                 this.currentMonth.getFullYear(),
@@ -338,24 +381,19 @@ const app = Vue.createApp({
         }
     },
     mounted() {
-        // Restore user from localStorage if available.
+        // Restore signed‑in user if available.
         const savedUser = localStorage.getItem("user");
         if (savedUser) {
             this.user = JSON.parse(savedUser);
-            // Note: the user watcher will then call restoreDates() and calcAllMetrics()
         } else {
-            // No saved user – start with default dates.
             this.startDate = this.today;
         }
-
-        // Initialize Google Sign-In.
+        // Initialize Google Sign‑In once on app mount.
         if (window.google) {
             this.initializeGoogleSignIn();
         } else {
             window.onload = () => this.initializeGoogleSignIn();
         }
-
-        // Run metric calculation for initial display.
         this.calcAllMetrics();
     }
 });

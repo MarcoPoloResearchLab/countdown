@@ -187,22 +187,9 @@
     <header class="navbar">
         <div class="navbar-left">Countdown Calendar</div>
         <div class="navbar-right">
-            <!-- Sign In Button Container -->
-            <div id="googleSignInButton" v-if="!user"></div>
-
-            <!-- User Profile Container -->
-            <div v-if="user" class="user-section">
-                <img :src="user.picture"
-                     alt="Profile"
-                     class="user-pic"
-                     referrerpolicy="no-referrer">
-                <span class="user-name">{{ user.name }}</span>
-                <button
-                        @click="handleSignOut"
-                        class="button">
-                    Sign Out
-                </button>
-            </div>
+            <!-- Display UserProfile if signed in; otherwise display GoogleSignInButton -->
+            <user-profile v-if="isSignedIn" :user="user" @sign-out="handleSignOut"></user-profile>
+            <google-sign-in-button v-else></google-sign-in-button>
         </div>
     </header>
 
