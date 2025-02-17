@@ -12,12 +12,12 @@ const app = Vue.createApp({
             weeksLeft: 0,
             selectedMetric: "workingDays",
             metricOptions: [
-                {value: "workingDays", label: "Working Days Left"},
-                {value: "totalDays", label: "Total Days Left"},
-                {value: "workingHours", label: "Working Hours Left"},
-                {value: "totalHours", label: "Total Hours Left"},
-                {value: "totalSeconds", label: "Total Seconds Left"},
-                {value: "weeksLeft", label: "Weeks Left"}
+                { value: "workingDays", label: "Working Days Left" },
+                { value: "totalDays", label: "Total Days Left" },
+                { value: "workingHours", label: "Working Hours Left" },
+                { value: "totalHours", label: "Total Hours Left" },
+                { value: "totalSeconds", label: "Total Seconds Left" },
+                { value: "weeksLeft", label: "Weeks Left" }
             ],
             today: new Date().toISOString().split("T")[0],
             currentMonth: new Date(),
@@ -28,7 +28,7 @@ const app = Vue.createApp({
     },
     computed: {
         monthYear() {
-            return this.currentMonth.toLocaleString("default", {month: "long", year: "numeric"});
+            return this.currentMonth.toLocaleString("default", { month: "long", year: "numeric" });
         },
         calendarDays() {
             const yearValue = this.currentMonth.getFullYear();
@@ -37,10 +37,14 @@ const app = Vue.createApp({
             const lastDay = new Date(yearValue, monthValue + 1, 0);
             const days = [];
             const now = new Date();
+
+            // Fill leading days (previous month)
             for (let dayIndex = 0; dayIndex < firstDay.getDay(); dayIndex++) {
                 const tempDate = new Date(yearValue, monthValue, -dayIndex);
-                days.unshift({date: tempDate, otherMonth: true, isToday: false});
+                days.unshift({ date: tempDate, otherMonth: true, isToday: false });
             }
+
+            // Fill current month
             for (let dateNumber = 1; dateNumber <= lastDay.getDate(); dateNumber++) {
                 const tempDate = new Date(yearValue, monthValue, dateNumber);
                 days.push({
@@ -49,13 +53,16 @@ const app = Vue.createApp({
                     isToday: tempDate.toDateString() === now.toDateString()
                 });
             }
+
+            // Fill trailing days (next month)
             const leftoverCells = 7 - (days.length % 7);
             if (leftoverCells < 7) {
                 for (let dateNumber = 1; dateNumber <= leftoverCells; dateNumber++) {
                     const tempDate = new Date(yearValue, monthValue + 1, dateNumber);
-                    days.push({date: tempDate, otherMonth: true, isToday: false});
+                    days.push({ date: tempDate, otherMonth: true, isToday: false });
                 }
             }
+
             return days;
         },
         metricLabel() {
@@ -96,15 +103,81 @@ const app = Vue.createApp({
         }
     },
     watch: {
-        // Watch for changes in startDate and endDate and recalculate metrics
-        startDate() {
+        // Watch startDate and endDate. When they change, update metrics and save the dates.
+        startDate(newVal) {
             this.calcAllMetrics();
+            this.saveDates();
         },
-        endDate() {
+        endDate(newVal) {
             this.calcAllMetrics();
+            this.saveDates();
+        },
+        // Watch user changes. (Note: the "immediate" flag has been removed so that initial null does not wipe out saved dates.)
+        user: {
+            handler(newUser) {
+                if (newUser) {
+                    // User is logged in; restore any saved dates then update metrics.
+                    this.restoreDates();
+                    this.calcAllMetrics();
+                } else {
+                    // User logged out: set fresh defaults and clear stored dates.
+                    this.startDate = this.today;
+                    this.endDate = "";
+                    localStorage.removeItem("dates");
+                }
+            },
+            deep: true
         }
     },
     methods: {
+        // Saves only the startDate and endDate to localStorage.
+        saveDates() {
+            const dates = {
+                startDate: this.startDate,
+                endDate: this.endDate
+            };
+            localStorage.setItem("dates", JSON.stringify(dates));
+        },
+
+        // Restores the startDate and endDate from localStorage.
+        restoreDates() {
+            const savedDates = localStorage.getItem("dates");
+            if (savedDates) {
+                const dates = JSON.parse(savedDates);
+                this.startDate = dates.startDate || this.today;
+                this.endDate = dates.endDate || "";
+            }
+        },
+
+        handleSignOut() {
+            // Sign-out logic: clear the user and stored dates.
+            this.user = null;
+            this.errorMessage = null;
+            localStorage.removeItem("user");
+            localStorage.removeItem("dates");
+            google.accounts.id.disableAutoSelect();
+        },
+
+        handleCredentialResponse(response) {
+            // Handle the Google sign-in flow.
+            try {
+                const decodedToken = this.parseJwt(response.credential);
+                if (!decodedToken) {
+                    throw new Error("Invalid token received.");
+                }
+                this.user = decodedToken;
+                this.errorMessage = null;
+                localStorage.setItem("user", JSON.stringify(decodedToken));
+
+                // With a logged-in user, restore dates and update metrics.
+                this.restoreDates();
+                this.calcAllMetrics();
+            } catch (error) {
+                this.errorMessage = "Authentication failed. Please try again.";
+                console.error("Authentication error:", error);
+            }
+        },
+
         parseJwt(token) {
             try {
                 return JSON.parse(atob(token.split('.')[1]));
@@ -113,40 +186,14 @@ const app = Vue.createApp({
             }
         },
 
-        handleCredentialResponse(response) {
-            try {
-                const decodedToken = this.parseJwt(response.credential);
-
-                if (!decodedToken) {
-                    throw new Error("Invalid token received.");
-                }
-
-                // Store the complete decoded token as the user object
-                this.user = decodedToken;
-                this.errorMessage = null;
-                localStorage.setItem('user', JSON.stringify(decodedToken));
-            } catch (error) {
-                this.errorMessage = "Authentication failed. Please try again.";
-                console.error("Authentication error:", error);
-            }
-        },
-
-        handleSignOut() {
-            this.user = null;
-            this.errorMessage = null;
-            localStorage.removeItem('user'); // Remove user from localStorage
-            google.accounts.id.disableAutoSelect();
-        },
-
         initializeGoogleSignIn() {
             google.accounts.id.initialize({
                 client_id: '74022320040-5aaq169bkriqitue3dcqi8g2o3vk5q16.apps.googleusercontent.com',
                 callback: this.handleCredentialResponse.bind(this)
             });
-
             google.accounts.id.renderButton(
                 document.getElementById('googleSignInButton'),
-                {theme: 'outline', size: 'large'}
+                { theme: 'outline', size: 'large' }
             );
         },
 
@@ -193,42 +240,36 @@ const app = Vue.createApp({
                 `${yearValue}-01-01`, // New Year's Day
                 this.getNthWeekdayOfMonth(yearValue, 1, 1, 3), // MLK Day (3rd Monday in January)
                 this.getNthWeekdayOfMonth(yearValue, 2, 1, 3), // Presidents Day (3rd Monday in February)
-                this.getLastWeekdayOfMonth(yearValue, 5, 1), // Memorial Day (Last Monday in May)
+                this.getLastWeekdayOfMonth(yearValue, 5, 1),   // Memorial Day (Last Monday in May)
                 `${yearValue}-06-19`, // Juneteenth
                 `${yearValue}-07-04`, // Independence Day
                 this.getNthWeekdayOfMonth(yearValue, 9, 1, 1), // Labor Day (1st Monday in September)
-                this.getNthWeekdayOfMonth(yearValue, 10, 1, 2), // Columbus Day (2nd Monday in October)
+                this.getNthWeekdayOfMonth(yearValue, 10, 1, 2),// Columbus Day (2nd Monday in October)
                 `${yearValue}-11-11`, // Veterans Day
-                this.getNthWeekdayOfMonth(yearValue, 11, 4, 4), // Thanksgiving (4th Thursday in November)
-                `${yearValue}-12-25` // Christmas
+                this.getNthWeekdayOfMonth(yearValue, 11, 4, 4),// Thanksgiving (4th Thursday in November)
+                `${yearValue}-12-25`  // Christmas
             ];
 
-            // Handle weekend holidays
+            // Handle weekend holidays: adjust if necessary.
             const adjustedHolidays = holidays.map(holiday => {
                 const date = new Date(holiday);
                 const day = date.getDay();
-
-                // If holiday falls on Saturday, observe on Friday
-                if (day === 6) {
+                if (day === 6) { // Saturday: observe Friday
                     date.setDate(date.getDate() - 1);
                     return date.toISOString().split('T')[0];
                 }
-                // If holiday falls on Sunday, observe on Monday
-                if (day === 0) {
+                if (day === 0) { // Sunday: observe Monday
                     date.setDate(date.getDate() + 1);
                     return date.toISOString().split('T')[0];
                 }
                 return holiday;
             });
-
             return adjustedHolidays;
         },
-        
+
         getNthWeekdayOfMonth(yearValue, monthNumber, weekdayNumber, occurrenceNumber) {
             const date = new Date(yearValue, monthNumber - 1, 1);
             let count = 0;
-
-            // Keep incrementing the date until we find the nth occurrence of the desired weekday
             while (count < occurrenceNumber) {
                 if (date.getDay() === weekdayNumber) {
                     count++;
@@ -237,14 +278,13 @@ const app = Vue.createApp({
                     date.setDate(date.getDate() + 1);
                 }
             }
-
             return date.toISOString().split('T')[0];
         },
 
         getLastWeekdayOfMonth(yearValue, monthNumber, weekdayNumber) {
             const tempDate = new Date(yearValue, monthNumber, 0);
             const tempWeekday = tempDate.getDay();
-            let difference = (tempWeekday - weekdayNumber + 7) % 7;
+            const difference = (tempWeekday - weekdayNumber + 7) % 7;
             const dayInMonth = tempDate.getDate() - difference;
             return new Date(yearValue, monthNumber - 1, dayInMonth).toISOString().split("T")[0];
         },
@@ -260,7 +300,7 @@ const app = Vue.createApp({
         },
 
         addVacation() {
-            this.vacations.push({start: "", end: ""});
+            this.vacations.push({ start: "", end: "" });
         },
 
         removeVacation(indexValue) {
@@ -282,28 +322,40 @@ const app = Vue.createApp({
         },
 
         previousMonth() {
-            this.currentMonth = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth() - 1, 1);
+            this.currentMonth = new Date(
+                this.currentMonth.getFullYear(),
+                this.currentMonth.getMonth() - 1,
+                1
+            );
         },
 
         nextMonth() {
-            this.currentMonth = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth() + 1, 1);
+            this.currentMonth = new Date(
+                this.currentMonth.getFullYear(),
+                this.currentMonth.getMonth() + 1,
+                1
+            );
         }
     },
     mounted() {
-        // Restore user from localStorage if available
-        const savedUser = localStorage.getItem('user');
+        // Restore user from localStorage if available.
+        const savedUser = localStorage.getItem("user");
         if (savedUser) {
             this.user = JSON.parse(savedUser);
+            // Note: the user watcher will then call restoreDates() and calcAllMetrics()
+        } else {
+            // No saved user – start with default dates.
+            this.startDate = this.today;
         }
 
-        // Initialize Google Sign-In
+        // Initialize Google Sign-In.
         if (window.google) {
             this.initializeGoogleSignIn();
         } else {
             window.onload = () => this.initializeGoogleSignIn();
         }
 
-        this.startDate = this.today;
+        // Run metric calculation for initial display.
         this.calcAllMetrics();
     }
 });
