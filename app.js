@@ -146,7 +146,7 @@ const app = Vue.createApp({
 
             google.accounts.id.renderButton(
                 document.getElementById('googleSignInButton'),
-                { theme: 'outline', size: 'large' }
+                {theme: 'outline', size: 'large'}
             );
         },
 
@@ -189,29 +189,56 @@ const app = Vue.createApp({
         },
 
         getUSHolidays(yearValue) {
-            return [
-                `${yearValue}-01-01`,
-                this.getNthWeekdayOfMonth(yearValue, 1, 1, 3),
-                this.getNthWeekdayOfMonth(yearValue, 2, 1, 3),
-                this.getLastWeekdayOfMonth(yearValue, 5, 1),
-                `${yearValue}-06-19`,
-                `${yearValue}-07-04`,
-                this.getNthWeekdayOfMonth(yearValue, 9, 1, 1),
-                this.getNthWeekdayOfMonth(yearValue, 10, 1, 2),
-                `${yearValue}-11-11`,
-                this.getNthWeekdayOfMonth(yearValue, 11, 4, 4),
-                `${yearValue}-12-25`
+            const holidays = [
+                `${yearValue}-01-01`, // New Year's Day
+                this.getNthWeekdayOfMonth(yearValue, 1, 1, 3), // MLK Day (3rd Monday in January)
+                this.getNthWeekdayOfMonth(yearValue, 2, 1, 3), // Presidents Day (3rd Monday in February)
+                this.getLastWeekdayOfMonth(yearValue, 5, 1), // Memorial Day (Last Monday in May)
+                `${yearValue}-06-19`, // Juneteenth
+                `${yearValue}-07-04`, // Independence Day
+                this.getNthWeekdayOfMonth(yearValue, 9, 1, 1), // Labor Day (1st Monday in September)
+                this.getNthWeekdayOfMonth(yearValue, 10, 1, 2), // Columbus Day (2nd Monday in October)
+                `${yearValue}-11-11`, // Veterans Day
+                this.getNthWeekdayOfMonth(yearValue, 11, 4, 4), // Thanksgiving (4th Thursday in November)
+                `${yearValue}-12-25` // Christmas
             ];
-        },
 
+            // Handle weekend holidays
+            const adjustedHolidays = holidays.map(holiday => {
+                const date = new Date(holiday);
+                const day = date.getDay();
+
+                // If holiday falls on Saturday, observe on Friday
+                if (day === 6) {
+                    date.setDate(date.getDate() - 1);
+                    return date.toISOString().split('T')[0];
+                }
+                // If holiday falls on Sunday, observe on Monday
+                if (day === 0) {
+                    date.setDate(date.getDate() + 1);
+                    return date.toISOString().split('T')[0];
+                }
+                return holiday;
+            });
+
+            return adjustedHolidays;
+        },
+        
         getNthWeekdayOfMonth(yearValue, monthNumber, weekdayNumber, occurrenceNumber) {
-            const firstDay = new Date(yearValue, monthNumber - 1, 1);
-            const firstDayOfWeek = firstDay.getDay();
-            let dayInMonth = ((weekdayNumber - firstDayOfWeek + 7) % 7) + 1 + (occurrenceNumber - 1) * 7;
-            if (dayInMonth > new Date(yearValue, monthNumber, 0).getDate()) {
-                dayInMonth -= 7;
+            const date = new Date(yearValue, monthNumber - 1, 1);
+            let count = 0;
+
+            // Keep incrementing the date until we find the nth occurrence of the desired weekday
+            while (count < occurrenceNumber) {
+                if (date.getDay() === weekdayNumber) {
+                    count++;
+                }
+                if (count < occurrenceNumber) {
+                    date.setDate(date.getDate() + 1);
+                }
             }
-            return new Date(yearValue, monthNumber - 1, dayInMonth).toISOString().split("T")[0];
+
+            return date.toISOString().split('T')[0];
         },
 
         getLastWeekdayOfMonth(yearValue, monthNumber, weekdayNumber) {
