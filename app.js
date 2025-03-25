@@ -30,7 +30,7 @@ const GoogleSignInButton = {
     }
 };
 
-// UserProfile component displays the signed‑in user's info
+// UserProfile component displays the signed-in user's info
 const UserProfile = {
     props: ['user'],
     template: `
@@ -60,120 +60,113 @@ const app = Vue.createApp({
             weeksLeft: 0,
             selectedMetric: "workingDays",
             metricOptions: [
-                { value: "workingDays", label: "Working Days Left" },
-                { value: "totalDays", label: "Total Days Left" },
-                { value: "workingHours", label: "Working Hours Left" },
-                { value: "totalHours", label: "Total Hours Left" },
-                { value: "totalSeconds", label: "Total Seconds Left" },
-                { value: "weeksLeft", label: "Weeks Left" }
+                { value: "workingDays", label: "Working Days" },
+                { value: "totalDays", label: "Total Days" },
+                { value: "workingHours", label: "Working Hours" },
+                { value: "totalHours", label: "Total Hours" },
+                { value: "totalSeconds", label: "Total Seconds" },
+                { value: "weeksLeft", label: "Weeks" }
             ],
             today: new Date().toISOString().split("T")[0],
-            currentMonth: new Date(),
             dayHeaders: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
             user: null, // The user object (if signed in)
-            errorMessage: null
+            errorMessage: null,
+            startMonth: null, // Tracks the month for the start date calendar
+            endMonth: null   // Tracks the month for the end date calendar
         };
     },
     computed: {
-        // Reactive computed property to determine if a user is signed in
+        // Determines if a user is signed in
         isSignedIn() {
             return this.user !== null;
         },
-        monthYear() {
-            return this.currentMonth.toLocaleString("default", {
+        // Shows the end calendar only if start and end dates are in different months/years
+        showEndCalendar() {
+            if (!this.startDate || !this.endDate) return false;
+            const start = new Date(this.startDate);
+            const end = new Date(this.endDate);
+            return start.getMonth() !== end.getMonth() || start.getFullYear() !== end.getFullYear();
+        },
+        // Displays the month and year for the start date calendar
+        startMonthYear() {
+            if (!this.startMonth) return "Select Start Date";
+            return this.startMonth.toLocaleString("default", {
                 month: "long",
                 year: "numeric"
             });
         },
-        calendarDays() {
-            const yearValue = this.currentMonth.getFullYear();
-            const monthValue = this.currentMonth.getMonth();
-            const firstDay = new Date(yearValue, monthValue, 1);
-            const lastDay = new Date(yearValue, monthValue + 1, 0);
-            const days = [];
-            const now = new Date();
-
-            // Leading days from previous month.
-            for (let dayIndex = 0; dayIndex < firstDay.getDay(); dayIndex++) {
-                const tempDate = new Date(yearValue, monthValue, -dayIndex);
-                days.unshift({ date: tempDate, otherMonth: true, isToday: false });
-            }
-            // Days of the current month.
-            for (let dateNumber = 1; dateNumber <= lastDay.getDate(); dateNumber++) {
-                const tempDate = new Date(yearValue, monthValue, dateNumber);
-                days.push({
-                    date: tempDate,
-                    otherMonth: false,
-                    isToday: tempDate.toDateString() === now.toDateString()
-                });
-            }
-            // Trailing days from the next month.
-            const leftoverCells = 7 - (days.length % 7);
-            if (leftoverCells < 7) {
-                for (let dateNumber = 1; dateNumber <= leftoverCells; dateNumber++) {
-                    const tempDate = new Date(yearValue, monthValue + 1, dateNumber);
-                    days.push({ date: tempDate, otherMonth: true, isToday: false });
-                }
-            }
-
-            return days;
+        // Displays the month and year for the end date calendar
+        endMonthYear() {
+            if (!this.endMonth) return "Select End Date";
+            return this.endMonth.toLocaleString("default", {
+                month: "long",
+                year: "numeric"
+            });
+        },
+        // Generates days for the start date calendar
+        startCalendarDays() {
+            if (!this.startMonth) return [];
+            const yearValue = this.startMonth.getFullYear();
+            const monthValue = this.startMonth.getMonth();
+            return this.generateCalendarDays(yearValue, monthValue);
+        },
+        // Generates days for the end date calendar (if shown)
+        endCalendarDays() {
+            if (!this.endMonth || !this.showEndCalendar) return [];
+            const yearValue = this.endMonth.getFullYear();
+            const monthValue = this.endMonth.getMonth();
+            return this.generateCalendarDays(yearValue, monthValue);
         },
         metricLabel() {
             switch (this.selectedMetric) {
-                case "workingDays":
-                    return "Working Days Left";
-                case "workingHours":
-                    return "Working Hours Left";
-                case "totalDays":
-                    return "Total Days Left";
-                case "totalHours":
-                    return "Total Hours Left";
-                case "totalSeconds":
-                    return "Total Seconds Left";
-                case "weeksLeft":
-                    return "Weeks Left";
-                default:
-                    return "Metric";
+                case "workingDays": return "Working Days";
+                case "workingHours": return "Working Hours";
+                case "totalDays": return "Total Days";
+                case "totalHours": return "Total Hours";
+                case "totalSeconds": return "Total Seconds";
+                case "weeksLeft": return "Weeks";
+                default: return "Metric";
             }
         },
         displayValue() {
             switch (this.selectedMetric) {
-                case "workingDays":
-                    return this.workingDaysLeft;
-                case "workingHours":
-                    return this.workingHoursLeft;
-                case "totalDays":
-                    return this.totalDaysLeft;
-                case "totalHours":
-                    return this.totalHoursLeft;
-                case "totalSeconds":
-                    return this.totalSecondsLeft;
-                case "weeksLeft":
-                    return this.weeksLeft;
-                default:
-                    return 0;
+                case "workingDays": return this.workingDaysLeft;
+                case "workingHours": return this.workingHoursLeft;
+                case "totalDays": return this.totalDaysLeft;
+                case "totalHours": return this.totalHoursLeft;
+                case "totalSeconds": return this.totalSecondsLeft;
+                case "weeksLeft": return this.weeksLeft;
+                default: return 0;
             }
         }
     },
     watch: {
-        // Watch startDate and endDate. When they change, update metrics and save the dates.
-        startDate() {
+        startDate(newValue) {
+            if (newValue) {
+                const start = new Date(newValue);
+                this.startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+            } else {
+                this.startMonth = null;
+            }
             this.calcAllMetrics();
             this.saveDates();
         },
-        endDate() {
+        endDate(newValue) {
+            if (newValue) {
+                const end = new Date(newValue);
+                this.endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+            } else {
+                this.endMonth = null;
+            }
             this.calcAllMetrics();
             this.saveDates();
         },
-        // Watch user changes. (Note: the "immediate" flag has been removed so that initial null does not wipe out saved dates.)
         user: {
             handler(newUser) {
                 if (newUser) {
-                    // User is logged in; restore any saved dates then update metrics.
                     this.restoreDates();
                     this.calcAllMetrics();
                 } else {
-                    // User logged out: set fresh defaults and clear stored dates.
                     this.startDate = this.today;
                     this.endDate = "";
                     localStorage.removeItem("dates");
@@ -183,7 +176,6 @@ const app = Vue.createApp({
         }
     },
     methods: {
-        // Saves only the startDate and endDate to localStorage.
         saveDates() {
             const dates = {
                 startDate: this.startDate,
@@ -191,8 +183,6 @@ const app = Vue.createApp({
             };
             localStorage.setItem("dates", JSON.stringify(dates));
         },
-
-        // Restores the startDate and endDate from localStorage.
         restoreDates() {
             const savedDates = localStorage.getItem("dates");
             if (savedDates) {
@@ -201,9 +191,7 @@ const app = Vue.createApp({
                 this.endDate = dates.endDate || "";
             }
         },
-
         handleSignOut() {
-            // Sign-out logic: clear the user and stored dates.
             this.user = null;
             this.errorMessage = null;
             localStorage.removeItem("user");
@@ -235,8 +223,7 @@ const app = Vue.createApp({
         },
         initializeGoogleSignIn() {
             google.accounts.id.initialize({
-                client_id:
-                    "74022320040-5aaq169bkriqitue3dcqi8g2o3vk5q16.apps.googleusercontent.com",
+                client_id: "74022320040-5aaq169bkriqitue3dcqi8g2o3vk5q16.apps.googleusercontent.com",
                 callback: this.handleCredentialResponse.bind(this)
             });
         },
@@ -254,8 +241,7 @@ const app = Vue.createApp({
             const end = new Date(this.endDate);
             let totalDays = 0;
             if (end >= start) {
-                totalDays =
-                    Math.floor((end - start) / (1000 * 3600 * 24)) + 1;
+                totalDays = Math.floor((end - start) / (1000 * 3600 * 24)) + 1;
             }
             let workingDays = 0;
             for (
@@ -365,35 +351,104 @@ const app = Vue.createApp({
             }
             this.calcAllMetrics();
         },
-        previousMonth() {
-            this.currentMonth = new Date(
-                this.currentMonth.getFullYear(),
-                this.currentMonth.getMonth() - 1,
-                1
-            );
+        previousMonth(type) {
+            if (type === "start" && this.startMonth) {
+                this.startMonth = new Date(
+                    this.startMonth.getFullYear(),
+                    this.startMonth.getMonth() - 1,
+                    1
+                );
+            } else if (type === "end" && this.endMonth) {
+                this.endMonth = new Date(
+                    this.endMonth.getFullYear(),
+                    this.endMonth.getMonth() - 1,
+                    1
+                );
+            }
         },
-        nextMonth() {
-            this.currentMonth = new Date(
-                this.currentMonth.getFullYear(),
-                this.currentMonth.getMonth() + 1,
-                1
-            );
+        nextMonth(type) {
+            if (type === "start" && this.startMonth) {
+                this.startMonth = new Date(
+                    this.startMonth.getFullYear(),
+                    this.startMonth.getMonth() + 1,
+                    1
+                );
+            } else if (type === "end" && this.endMonth) {
+                this.endMonth = new Date(
+                    this.endMonth.getFullYear(),
+                    this.endMonth.getMonth() + 1,
+                    1
+                );
+            }
+        },
+        generateCalendarDays(yearValue, monthValue) {
+            const firstDay = new Date(yearValue, monthValue, 1);
+            const lastDay = new Date(yearValue, monthValue + 1, 0);
+            const days = [];
+            const now = new Date();
+            const startDate = this.startDate ? new Date(this.startDate) : null;
+            const endDate = this.endDate ? new Date(this.endDate) : null;
+
+            // Leading days from previous month
+            for (let dayIndex = 0; dayIndex < firstDay.getDay(); dayIndex++) {
+                const tempDate = new Date(yearValue, monthValue, -dayIndex);
+                days.unshift({ date: tempDate, otherMonth: true, isToday: false, isStartDate: false, isEndDate: false });
+            }
+
+            // Days of the current month
+            for (let dateNumber = 1; dateNumber <= lastDay.getDate(); dateNumber++) {
+                const tempDate = new Date(yearValue, monthValue, dateNumber);
+                days.push({
+                    date: tempDate,
+                    otherMonth: false,
+                    isToday: tempDate.toDateString() === now.toDateString(),
+                    isStartDate: startDate && tempDate.toDateString() === startDate.toDateString(),
+                    isEndDate: endDate && tempDate.toDateString() === endDate.toDateString()
+                });
+            }
+
+            // Trailing days from next month
+            const leftoverCells = 7 - (days.length % 7);
+            if (leftoverCells < 7) {
+                for (let dateNumber = 1; dateNumber <= leftoverCells; dateNumber++) {
+                    const tempDate = new Date(yearValue, monthValue + 1, dateNumber);
+                    days.push({ date: tempDate, otherMonth: true, isToday: false, isStartDate: false, isEndDate: false });
+                }
+            }
+
+            return days;
         }
     },
     mounted() {
-        // Restore signed‑in user if available.
         const savedUser = localStorage.getItem("user");
         if (savedUser) {
             this.user = JSON.parse(savedUser);
         } else {
             this.startDate = this.today;
         }
-        // Initialize Google Sign‑In once on app mount.
-        if (window.google) {
-            this.initializeGoogleSignIn();
-        } else {
-            window.onload = () => this.initializeGoogleSignIn();
+    
+        let checkInterval; // Define checkInterval in the outer scope
+        const initGoogle = () => {
+            if (window.google) {
+                console.log("App: Initializing Google Sign-In");
+                this.initializeGoogleSignIn();
+                if (checkInterval) {
+                    clearInterval(checkInterval); // Now checkInterval is accessible
+                }
+            } else {
+                console.log("App: Google API not yet available");
+            }
+        };
+        initGoogle();
+        if (!window.google) {
+            checkInterval = setInterval(initGoogle, 100); // Assign to the outer-scoped variable
+            setTimeout(() => {
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                }
+            }, 5000); // Stop after 5 seconds
         }
+    
         this.calcAllMetrics();
     }
 });
