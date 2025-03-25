@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8"/>
+    <meta charset="UTF-8" />
     <title>Countdown Calendar</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -52,7 +53,8 @@
             color: #333;
         }
 
-        h1, h2 {
+        h1,
+        h2 {
             color: #444;
             text-align: center;
         }
@@ -74,11 +76,14 @@
             background: #fff;
         }
 
-        table, th, td {
+        table,
+        th,
+        td {
             border: 1px solid #ddd;
         }
 
-        th, td {
+        th,
+        td {
             padding: 8px 12px;
             text-align: center;
         }
@@ -122,6 +127,12 @@
             border-radius: 5px;
             padding: 10px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            /* Add this */
+            flex-direction: column;
+            /* Stack calendars vertically */
+            gap: 40px;
+            /* Add a gap between calendars */
         }
 
         .result-title {
@@ -138,7 +149,7 @@
             color: #4285F4;
         }
 
-        .calendar {
+        .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 5px;
@@ -171,6 +182,144 @@
             font-size: 1.2em;
         }
 
+        .metric-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .button {
+            padding: 8px 12px;
+            background-color: #4285F4;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .button.active {
+            background-color: #357ae8;
+            font-weight: bold;
+        }
+
+        .button:hover:not(.active) {
+            background-color: #669df6;
+        }
+
+        .date-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .date-group .form-group {
+            flex: 1;
+        }
+
+        .calendar-container {
+            margin-bottom: 0;
+        }
+
+        .calendar-container:last-child {
+            margin-bottom: 0;
+        }
+
+        .calendar-day {
+            text-align: center;
+            padding: 10px 0;
+            border: 1px solid #ddd;
+        }
+
+        .calendar-day.other-month {
+            color: #999;
+            /* Light gray for days outside the current month */
+        }
+
+        .calendar-day.today {
+            background-color: #f0f0f0;
+            /* Light gray for today */
+        }
+
+        .calendar-day.selected {
+            background-color: #4285F4;
+            /* Blue for selected dates */
+            color: #fff;
+            /* White text */
+            font-weight: bold;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .button {
+            background: #4285F4;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            background: #eaeaea;
+            /* Light gray background for headers */
+            padding: 5px;
+            border: 1px solid #ddd;
+        }
+
+        /* Existing conditional styles remain the same */
+        .calendar-day.other-month {
+            color: #999;
+            /* Light gray for days outside the current month */
+        }
+
+        .calendar-day.today {
+            background-color: #f0f0f0;
+            /* Light gray for today */
+            font-weight: bold;
+        }
+
+        .calendar-day.selected {
+            background-color: #4285F4;
+            /* Blue for selected dates */
+            color: #fff;
+            /* White text */
+            font-weight: bold;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: bold;
+            background: #eaeaea;
+            padding: 5px;
+            border: 1px solid #ddd;
+        }
+
+        .calendar-day.other-month {
+            color: #999;
+        }
+
+        .calendar-day.today {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        .calendar-day.selected {
+            background-color: #4285F4;
+            color: #fff;
+            font-weight: bold;
+        }
+
         @media (max-width: 768px) {
             .main-container {
                 flex-direction: column;
@@ -179,97 +328,121 @@
             .monthly-calendar {
                 max-width: 100%;
             }
+
+            .date-group {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
+
 <body>
-<div id="app">
-    <header class="navbar">
-        <div class="navbar-left">Countdown Calendar</div>
-        <div class="navbar-right">
-            <!-- Display UserProfile if signed in; otherwise display GoogleSignInButton -->
-            <user-profile v-if="isSignedIn" :user="user" @sign-out="handleSignOut"></user-profile>
-            <google-sign-in-button v-else></google-sign-in-button>
-        </div>
-    </header>
-
-    <div class="main-container">
-        <!-- Left Side: Dates, Vacation Ranges & Countdown -->
-        <div class="form-container">
-            <div class="form-group">
-                <label>Start Date:</label>
-                <input type="date" v-model="startDate" required/>
+    <div id="app">
+        <header class="navbar">
+            <div class="navbar-left">Countdown Calendar</div>
+            <div class="navbar-right">
+                <!-- Display UserProfile if signed in; otherwise display GoogleSignInButton -->
+                <user-profile v-if="isSignedIn" :user="user" @sign-out="handleSignOut"></user-profile>
+                <google-sign-in-button v-else></google-sign-in-button>
             </div>
-            <div class="form-group">
-                <label>End Date:</label>
-                <input type="date" v-model="endDate" required/>
-            </div>
+        </header>
 
-            <h2>Vacation Ranges</h2>
-            <table v-if="vacations.length">
-                <thead>
-                <tr>
-                    <th>Vacation Start</th>
-                    <th>Vacation End</th>
-                    <th>Action</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr v-for="(vacation, index) in vacations" :key="index">
-                    <td>
-                        <input type="date" v-model="vacation.start" @change="onVacationChange(index)"/>
-                    </td>
-                    <td>
-                        <input type="date" v-model="vacation.end" @change="onVacationChange(index)"/>
-                    </td>
-                    <td>
-                        <button type="button" class="button" @click="removeVacation(index)">Remove</button>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-            <button type="button" class="button" @click="addVacation">Add Vacation Range</button>
-
-            <div class="form-group" style="margin-top: 30px;">
-                <label for="metricSelect"><strong>Choose Metric:</strong></label>
-                <select
-                        id="metricSelect"
-                        v-model="selectedMetric"
-                        style="width:100%; padding: 6px; box-sizing:border-box;"
-                >
-                    <option v-for="option in metricOptions" :key="option.value" :value="option.value">
-                        {{ option.label }}
-                    </option>
-                </select>
-            </div>
-
-            <div class="result-title">{{ metricLabel }}</div>
-            <div class="result">{{ displayValue }}</div>
-        </div>
-
-        <!-- Right Side: Monthly Calendar -->
-        <div class="monthly-calendar">
-            <div class="calendar-header">
-                <button type="button" class="button" @click="previousMonth">&lt;</button>
-                <h2>Monthly Calendar: {{ monthYear }}</h2>
-                <button type="button" class="button" @click="nextMonth">&gt;</button>
-            </div>
-            <div class="calendar">
-                <div v-for="(header, idx) in dayHeaders" :key="'header-' + idx" class="calendar-day">
-                    {{ header }}
+        <div class="main-container">
+            <!-- Left Side: Dates, Vacation Ranges & Countdown -->
+            <div class="form-container">
+                <div class="date-group">
+                    <div class="form-group">
+                        <label>Start Date:</label>
+                        <input type="date" v-model="startDate" required />
+                    </div>
+                    <div class="form-group">
+                        <label>End Date:</label>
+                        <input type="date" v-model="endDate" required />
+                    </div>
                 </div>
-                <div
-                        v-for="(dayObj, idx) in calendarDays"
-                        :key="'day-' + idx"
-                        :class="['calendar-day', { 'other-month': dayObj.otherMonth, 'today': dayObj.isToday }]"
-                >
-                    {{ dayObj.date.getDate() }}
+                <label><strong>Vacations</strong></label>
+                <br/>
+                <table v-if="vacations.length">
+                    <thead>
+                        <tr>
+                            <th>Vacation Start</th>
+                            <th>Vacation End</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(vacation, index) in vacations" :key="index">
+                            <td>
+                                <input type="date" v-model="vacation.start" @change="onVacationChange(index)" />
+                            </td>
+                            <td>
+                                <input type="date" v-model="vacation.end" @change="onVacationChange(index)" />
+                            </td>
+                            <td>
+                                <button type="button" class="button" @click="removeVacation(index)">Remove</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button type="button" class="button" @click="addVacation">Add Vacation Range</button>
+
+                <div class="form-group" style="margin-top: 30px;">
+                    <label><strong>Time Left:</strong></label>
+                    <div class="metric-buttons" style="margin-top: 10px;">
+                        <button v-for="option in metricOptions" :key="option.value"
+                            :class="['button', { 'active': selectedMetric === option.value }]"
+                            @click="selectedMetric = option.value" style="margin-right: 5px; margin-bottom: 5px;">
+                            {{ option.label }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="result-title">{{ metricLabel }}</div>
+                <div class="result">{{ displayValue }}</div>
+            </div>
+
+            <!-- Right Side: Monthly Calendar -->
+            <div class="monthly-calendar">
+                <!-- Start Date Calendar -->
+                <div class="calendar-container">
+                    <div class="calendar">
+                        <div class="calendar-header">
+                            <button @click="previousMonth('start')">&lt;</button>
+                            <span>{{ startMonthYear }}</span>
+                            <button @click="nextMonth('start')">&gt;</button>
+                        </div>
+                        <div class="calendar-grid">
+                            <div v-for="header in dayHeaders" class="day-header">{{ header }}</div>
+                            <div v-for="day in startCalendarDays"
+                                :class="{ 'calendar-day': true, 'other-month': day.otherMonth, 'today': day.isToday, 'selected': day.isStartDate || day.isEndDate }">
+                                {{ day.date.getDate() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- End Date Calendar (shown only if needed) -->
+                <div class="calendar-container" v-if="showEndCalendar">
+                    <div class="calendar">
+                        <div class="calendar-header">
+                            <button @click="previousMonth('end')">&lt;</button>
+                            <span>{{ endMonthYear }}</span>
+                            <button @click="nextMonth('end')">&gt;</button>
+                        </div>
+                        <div class="calendar-grid">
+                            <div v-for="header in dayHeaders" class="day-header">{{ header }}</div>
+                            <div v-for="day in endCalendarDays"
+                                :class="{ 'calendar-day': true, 'other-month': day.otherMonth, 'today': day.isToday, 'selected': day.isStartDate || day.isEndDate }">
+                                {{ day.date.getDate() }}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
+
 </html>
