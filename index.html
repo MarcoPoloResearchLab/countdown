@@ -320,6 +320,38 @@
             font-weight: bold;
         }
 
+        /* Style for working days within the selected range */
+        .calendar-day.working-day-in-range {
+            background-color: #cfe2f3;
+            /* Pale Blue */
+        }
+
+        /* Ensure selected start/end days override the pale blue */
+        .calendar-day.selected {
+            background-color: #4285F4;
+            /* Original Strong Blue */
+            color: #fff;
+            font-weight: bold;
+            position: relative;
+            /* Helps ensure visual priority */
+            z-index: 1;
+        }
+
+        /* Optional: Style for today when it's also a working day in range */
+        .calendar-day.today.working-day-in-range:not(.selected) {
+            background-color: #adcdee;
+            /* Slightly different pale blue? */
+        }
+
+        /* Ensure today's original style is distinct */
+        .calendar-day.today:not(.selected):not(.working-day-in-range) {
+            background-color: #f0f0f0;
+            /* Original light gray */
+            font-weight: bold;
+        }
+
+        /* --- End of added CSS --- */
+
         @media (max-width: 768px) {
             .main-container {
                 flex-direction: column;
@@ -342,8 +374,9 @@
             <div class="navbar-left">Countdown Calendar</div>
             <div class="navbar-right">
                 <user-profile v-if="isSignedIn" :user="user" @sign-out="handleSignOut"></user-profile>
-                <!-- Add ref here for the button component -->
-                <google-sign-in-button v-else ref="googleButtonComponent" :google-api-ready="googleApiReady"></google-sign-in-button>
+                <!-- Add ref="googleButtonComponent" and pass googleApiReady prop -->
+                <google-sign-in-button v-else ref="googleButtonComponent"
+                    :google-api-ready="googleApiReady"></google-sign-in-button>
             </div>
         </header>
 
@@ -361,7 +394,7 @@
                     </div>
                 </div>
                 <label><strong>Vacations</strong></label>
-                <br/>
+                <br />
                 <table v-if="vacations.length">
                     <thead>
                         <tr>
@@ -413,9 +446,14 @@
                         </div>
                         <div class="calendar-grid">
                             <div v-for="header in dayHeaders" class="day-header">{{ header }}</div>
-                            <div v-for="day in startCalendarDays"
-                                :class="{ 'calendar-day': true, 'other-month': day.otherMonth, 'today': day.isToday, 'selected': day.isStartDate || day.isEndDate }">
-                                {{ day.date.getDate() }}
+                            <div v-for="day in startCalendarDays" :class="{
+                                'calendar-day': true,
+                                'other-month': day.otherMonth,
+                                'today': day.isToday,
+                                'selected': day.isStartDate || day.isEndDate,
+                                'working-day-in-range': day.isWorkingDayInRange && !day.isStartDate && !day.isEndDate
+                            }">
+                            {{ day.date.getDate() }}
                             </div>
                         </div>
                     </div>
@@ -431,9 +469,14 @@
                         </div>
                         <div class="calendar-grid">
                             <div v-for="header in dayHeaders" class="day-header">{{ header }}</div>
-                            <div v-for="day in endCalendarDays"
-                                :class="{ 'calendar-day': true, 'other-month': day.otherMonth, 'today': day.isToday, 'selected': day.isStartDate || day.isEndDate }">
-                                {{ day.date.getDate() }}
+                            <div v-for="day in endCalendarDays" :class="{
+                                'calendar-day': true,
+                                'other-month': day.otherMonth,
+                                'today': day.isToday,
+                                'selected': day.isStartDate || day.isEndDate,
+                                'working-day-in-range': day.isWorkingDayInRange && !day.isStartDate && !day.isEndDate
+                            }">
+                            {{ day.date.getDate() }}
                             </div>
                         </div>
                     </div>
