@@ -341,9 +341,9 @@
         <header class="navbar">
             <div class="navbar-left">Countdown Calendar</div>
             <div class="navbar-right">
-                <!-- Display UserProfile if signed in; otherwise display GoogleSignInButton -->
                 <user-profile v-if="isSignedIn" :user="user" @sign-out="handleSignOut"></user-profile>
-                <google-sign-in-button v-else></google-sign-in-button>
+                <!-- Add ref here for the button component -->
+                <google-sign-in-button v-else ref="googleButtonComponent" :google-api-ready="googleApiReady"></google-sign-in-button>
             </div>
         </header>
 
