@@ -17,7 +17,7 @@ the application locally you must serve the files over HTTP (browsers often restr
 2. **Serve the files using a simple HTTP server.** For example, if you have Python installed, you can run:
 
       ```sh
-      python3 -m http.server 3000
+      python3 -m http.server 8080
       ```
 
 3. **Open your browser** and navigate to: http://localhost:8080
