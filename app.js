@@ -4,13 +4,9 @@ const GoogleSignInButton = {
   mounted() {
     this.renderIfReady();
   },
-  // Watch for API readiness change after mount if needed
   watch: {
     googleApiReady(isReady) {
-      if (isReady) {
-        // Attempt render if API becomes ready after component mounted
-        this.$nextTick(() => this.renderIfReady());
-      }
+      if (isReady) this.$nextTick(() => this.renderIfReady());
     },
   },
   methods: {
@@ -35,17 +31,17 @@ const GoogleSignInButton = {
   },
 };
 
-// --- UserProfile component (From Original) ---
+// --- UserProfile component ---
 const UserProfile = {
   props: ["user"],
   emits: ["sign-out"],
   template: `
-    <div class="user-section">
-      <img v-if="user && user.picture" :src="user.picture" alt="Profile" class="user-pic" referrerpolicy="no-referrer">
-      <span v-if="user && user.name" class="user-name">{{ user.name }}</span>
-      <button @click="$emit('sign-out')" class="button">Sign Out</button>
-    </div>
-  `,
+  <div class="user-section">
+    <img v-if="user && user.picture" :src="user.picture" alt="Profile" class="user-pic" referrerpolicy="no-referrer">
+    <span v-if="user && user.name" class="user-name">{{ user.name }}</span>
+    <button @click="$emit('sign-out')" class="button">Sign Out</button>
+  </div>
+`,
 };
 
 // --- Main Vue App ---
@@ -165,21 +161,16 @@ const app = Vue.createApp({
     },
   },
   watch: {
-    // Watchers trigger saveUserData and calcAllMetrics
-    // They also now handle updating startMonth/endMonth directly
     startDate(newValue, oldValue) {
       if (newValue === oldValue) return;
       const start = this.parseDateStringToLocal(newValue);
-      // Update month view
       this.startMonth = start
         ? new Date(start.getFullYear(), start.getMonth(), 1)
         : null;
       if (start && this.endDate) {
-        // Validate end date
         const end = this.parseDateStringToLocal(this.endDate);
         if (end && end < start) this.endDate = newValue;
       }
-      // Update endMonth view based on potential changes
       this.updateEndMonthView();
       this.calcAllMetrics();
       this.saveUserData();
@@ -187,14 +178,31 @@ const app = Vue.createApp({
     endDate(newValue, oldValue) {
       if (newValue === oldValue) return;
       const end = this.parseDateStringToLocal(newValue);
+
       if (end) {
-        // Validate against start
         const start = this.parseDateStringToLocal(this.startDate);
+        // Check if the newly selected end date is before the start date
         if (start && end < start) {
-          /* Handle invalid range */
+          console.warn(
+            "End date cannot be before start date. Setting end date to day after start date."
+          );
+
+          const nextDay = new Date(start); // Create date from start
+          nextDay.setDate(start.getDate() + 1); // Increment day by 1
+          const formattedNextDay = this.formatDateToYMD(nextDay); // Format to YYYY-MM-DD
+
+          // Use $nextTick for safety when updating watched prop inside watcher
+          this.$nextTick(() => {
+            this.endDate = formattedNextDay; // Set end date to the calculated next day
+          });
+          // Stop further processing in *this* watcher run, as the update will trigger it again.
+          return;
         }
+      } else if (newValue !== "") {
+        // Optional: Handle case where input is cleared or is invalid format
+        console.warn("Invalid end date entered or cleared:", newValue);
       }
-      // Update endMonth view
+
       this.updateEndMonthView();
       this.calcAllMetrics();
       this.saveUserData();
@@ -208,7 +216,14 @@ const app = Vue.createApp({
     },
   },
   methods: {
-    // --- Date Parser (Keep the robust one) ---
+    formatDateToYMD(date) {
+      if (!date || !(date instanceof Date)) return "";
+      const year = date.getFullYear();
+      const month = ("0" + (date.getMonth() + 1)).slice(-2); // Months are 0-indexed
+      const day = ("0" + date.getDate()).slice(-2);
+      return `${year}-${month}-${day}`;
+    },
+    // --- Keep robust parseDateStringToLocal ---
     parseDateStringToLocal(dateStr) {
       if (!dateStr || typeof dateStr !== "string") return null;
       try {
@@ -229,8 +244,6 @@ const app = Vue.createApp({
         return null;
       }
     },
-
-    // --- User Data Persistence (Slightly restructured restore) ---
     getUserDataKey() {
       return this.user && this.user.sub
         ? `countdownUserData-${this.user.sub}`
@@ -255,16 +268,13 @@ const app = Vue.createApp({
       }
     },
     restoreUserData() {
-      // Set defaults first
       this.setDefaultState();
-
       const userKey = this.getUserDataKey();
       if (userKey) {
         const savedData = localStorage.getItem(userKey);
         if (savedData) {
           try {
             const userData = JSON.parse(savedData);
-            // Overwrite defaults ONLY if restored data is valid
             const restoredStart =
               userData.startDate &&
               typeof userData.startDate === "string" &&
@@ -281,27 +291,23 @@ const app = Vue.createApp({
                     this.parseDateStringToLocal(v.end)
                 )
               : [];
-
             if (restoredStart) this.startDate = userData.startDate;
             if (restoredEnd) this.endDate = userData.endDate;
-            // Ensure end date isn't before start after restoring
             if (
               restoredStart &&
               restoredEnd &&
               this.parseDateStringToLocal(this.endDate) <
                 this.parseDateStringToLocal(this.startDate)
             ) {
-              this.endDate = this.startDate; // Or clear end date, etc.
+              this.endDate = this.startDate;
             }
             this.vacations = restoredVacations;
           } catch (e) {
             console.error("Failed to parse user data:", e);
-            localStorage.removeItem(userKey); // Clear corrupted
-            // Defaults are already set, so just log error
+            localStorage.removeItem(userKey);
           }
         }
       }
-      // Calculate metrics AFTER data is settled (defaults or restored)
       this.$nextTick(() => {
         this.calcAllMetrics();
       });
@@ -310,7 +316,6 @@ const app = Vue.createApp({
       this.startDate = this.today;
       this.endDate = "";
       this.vacations = [];
-      // Set initial calendar month views based on defaults
       this.startMonth = new Date(
         new Date().getFullYear(),
         new Date().getMonth(),
@@ -318,7 +323,6 @@ const app = Vue.createApp({
       );
       this.endMonth = null;
     },
-    // Helper to keep endMonth view logic consistent
     updateEndMonthView() {
       const end = this.parseDateStringToLocal(this.endDate);
       this.endMonth =
@@ -326,8 +330,6 @@ const app = Vue.createApp({
           ? new Date(end.getFullYear(), end.getMonth(), 1)
           : null;
     },
-
-    // --- Auth Methods (Mostly same) ---
     handleSignOut() {
       const userKey = this.getUserDataKey();
       if (userKey) localStorage.removeItem(userKey);
@@ -344,7 +346,7 @@ const app = Vue.createApp({
           google.accounts.id.disableAutoSelect();
         } catch (e) {}
       }
-      this.restoreUserData(); // This will set defaults and recalc
+      this.restoreUserData();
     },
     handleCredentialResponse(response) {
       try {
@@ -354,14 +356,13 @@ const app = Vue.createApp({
         this.user = decodedToken;
         this.errorMessage = null;
         localStorage.setItem("user", JSON.stringify(decodedToken));
-        this.restoreUserData(); // Restore data for this user
+        this.restoreUserData();
       } catch (error) {
-        /* ... error handling ... */
         console.error("Auth error:", error);
         this.errorMessage = "Authentication failed: " + error.message;
         this.user = null;
         localStorage.removeItem("user");
-        this.restoreUserData(); // Reset to defaults
+        this.restoreUserData();
       }
     },
     parseJwt(token) {
@@ -380,7 +381,6 @@ const app = Vue.createApp({
         return null;
       }
     },
-    // Initialize GSI (Ensure it runs only once API is ready)
     initializeGoogleSignIn() {
       if (
         !this.googleApiReady ||
@@ -388,19 +388,15 @@ const app = Vue.createApp({
         !google.accounts ||
         !google.accounts.id
       )
-        return; // Guard
+        return;
       try {
-        // console.log("App: Initializing GSI"); // Debugging
         google.accounts.id.initialize({
-          /* ... config ... */
           client_id:
             "74022320040-5aaq169bkriqitue3dcqi8g2o3vk5q16.apps.googleusercontent.com",
           callback: this.handleCredentialResponse.bind(this),
           auto_select: true,
         });
-        // Optional Prompt
         if (!this.isSignedIn) google.accounts.id.prompt();
-        // Attempt to render button immediately after init
         this.$nextTick(() => {
           const btnComp = this.$refs.googleButtonComponent;
           if (btnComp && typeof btnComp.renderIfReady === "function")
@@ -411,19 +407,18 @@ const app = Vue.createApp({
         this.errorMessage = "Could not init Google Sign-In.";
       }
     },
-    // Check GSI Readiness (Simplified)
     checkGoogleApi() {
       if (window.google && google.accounts && google.accounts.id) {
         if (this.googleInitInterval) {
           clearInterval(this.googleInitInterval);
           this.googleInitInterval = null;
         }
-        this.googleApiReady = true; // Mark ready
-        this.initializeGoogleSignIn(); // Initialize now
+        if (!this.googleApiReady) {
+          this.googleApiReady = true;
+          this.initializeGoogleSignIn();
+        }
       }
     },
-
-    // --- Calculation & Date Logic (Keep robust versions) ---
     calcAllMetrics() {
       this.resetMetrics();
       const start = this.parseDateStringToLocal(this.startDate);
@@ -545,7 +540,6 @@ const app = Vue.createApp({
       weekdayNumber,
       occurrenceNumber
     ) {
-      /* ... (same robust version) ... */
       const firstOfMonth = new Date(year, monthZeroIndexed, 1);
       let dayOfWeek = firstOfMonth.getDay();
       let dayOfMonth = 1 + ((weekdayNumber - dayOfWeek + 7) % 7);
@@ -556,7 +550,6 @@ const app = Vue.createApp({
         : null;
     },
     getLastWeekdayOfMonth(year, monthZeroIndexed, weekdayNumber) {
-      /* ... (same robust version) ... */
       const lastOfMonth = new Date(year, monthZeroIndexed + 1, 0);
       let dayOfWeek = lastOfMonth.getDay();
       let dayOfMonth = lastOfMonth.getDate();
@@ -581,8 +574,6 @@ const app = Vue.createApp({
       }
       return false;
     },
-
-    // --- UI Methods (Keep simple versions) ---
     addVacation() {
       this.vacations.push({ start: "", end: "" });
     },
@@ -591,7 +582,6 @@ const app = Vue.createApp({
         this.vacations.splice(index, 1);
     },
     onVacationChange(index) {
-      /* Optional validation, but watcher handles save/calc */
       const vac = this.vacations[index];
       if (vac && vac.start && vac.end) {
         const vStart = this.parseDateStringToLocal(vac.start);
@@ -602,7 +592,6 @@ const app = Vue.createApp({
       }
     },
     previousMonth(type) {
-      /* ... (same as before, uses new Date) ... */
       if (type === "start" && this.startMonth instanceof Date)
         this.startMonth = new Date(
           this.startMonth.getFullYear(),
@@ -617,7 +606,6 @@ const app = Vue.createApp({
         );
     },
     nextMonth(type) {
-      /* ... (same as before, uses new Date) ... */
       if (type === "start" && this.startMonth instanceof Date)
         this.startMonth = new Date(
           this.startMonth.getFullYear(),
@@ -636,31 +624,57 @@ const app = Vue.createApp({
       const firstOfMonth = new Date(Date.UTC(year, monthZeroIndexed, 1));
       const lastOfMonth = new Date(Date.UTC(year, monthZeroIndexed + 1, 0));
       const numDaysInMonth = lastOfMonth.getUTCDate();
-      const firstDayWeekday = firstOfMonth.getUTCDay();
+      const firstDayWeekday = firstOfMonth.getUTCDay(); // 0=Sun
+
       const today = new Date();
       const todayString = new Date(
         today.getFullYear(),
         today.getMonth(),
         today.getDate()
       ).toDateString();
-      const startDate = this.parseDateStringToLocal(this.startDate);
-      const endDate = this.parseDateStringToLocal(this.endDate);
-      const startDateString = startDate ? startDate.toDateString() : null;
-      const endDateString = endDate ? endDate.toDateString() : null;
+
+      const startDateObj = this.parseDateStringToLocal(this.startDate);
+      const endDateObj = this.parseDateStringToLocal(this.endDate);
+      const startDateString = startDateObj ? startDateObj.toDateString() : null;
+      const endDateString = endDateObj ? endDateObj.toDateString() : null;
+
+      // Pre-calculate holidays for the specific year being displayed
+      const holidaysSet = new Set(this.getUSHolidays(year));
+
+      // Helper to check if a day should be highlighted blue
+      const checkIsWorkingDayInRange = (date) => {
+        if (!startDateObj || !endDateObj) return false; // No range selected
+        const dateTime = date.getTime();
+        // Check if within range (inclusive)
+        if (
+          dateTime >= startDateObj.getTime() &&
+          dateTime <= endDateObj.getTime()
+        ) {
+          // Check if working day AND not vacation
+          return (
+            this.isWorkingDay(date, holidaysSet) && !this.isVacationDay(date)
+          );
+        }
+        return false;
+      };
+
+      // 1. Days from previous month
       const prevMonthLastDay = new Date(Date.UTC(year, monthZeroIndexed, 0));
       for (let i = firstDayWeekday; i > 0; i--) {
         const day = prevMonthLastDay.getUTCDate() - i + 1;
-        const date = new Date(year, monthZeroIndexed - 1, day);
+        const date = new Date(year, monthZeroIndexed - 1, day); // Local date
         days.push({
           date,
           otherMonth: true,
           isToday: false,
           isStartDate: date.toDateString() === startDateString,
           isEndDate: date.toDateString() === endDateString,
+          isWorkingDayInRange: checkIsWorkingDayInRange(date),
         });
       }
+      // 2. Days of current month
       for (let day = 1; day <= numDaysInMonth; day++) {
-        const date = new Date(year, monthZeroIndexed, day);
+        const date = new Date(year, monthZeroIndexed, day); // Local date
         const dateString = date.toDateString();
         days.push({
           date,
@@ -668,24 +682,26 @@ const app = Vue.createApp({
           isToday: dateString === todayString,
           isStartDate: dateString === startDateString,
           isEndDate: dateString === endDateString,
+          isWorkingDayInRange: checkIsWorkingDayInRange(date),
         });
       }
+      // 3. Days from next month (fill to 42 cells)
       let nextMonthDay = 1;
       while (days.length < 42) {
-        const date = new Date(year, monthZeroIndexed + 1, nextMonthDay++);
+        const date = new Date(year, monthZeroIndexed + 1, nextMonthDay++); // Local date
         days.push({
           date,
           otherMonth: true,
           isToday: false,
           isStartDate: date.toDateString() === startDateString,
           isEndDate: date.toDateString() === endDateString,
+          isWorkingDayInRange: checkIsWorkingDayInRange(date),
         });
       }
       return days;
     },
   },
   mounted() {
-    // Restore user profile
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
       try {
@@ -696,11 +712,7 @@ const app = Vue.createApp({
         localStorage.removeItem("user");
       }
     }
-
-    // Set initial state (defaults or restored user data) & calculate
-    this.restoreUserData(); // Handles defaults/restoring/initial calc
-
-    // Check for Google API readiness and initialize
+    this.restoreUserData();
     this.checkGoogleApi();
     if (!this.googleApiReady) {
       this.googleInitInterval = setInterval(this.checkGoogleApi, 300);
