@@ -66,6 +66,7 @@ const app = Vue.createApp({
         { value: "totalHours", label: "Total Hours" },
         { value: "totalSeconds", label: "Total Seconds" },
         { value: "weeksLeft", label: "Weeks" },
+        { value: "workingWeeks", label: "Working Weeks" },
       ],
       today: new Date().toISOString().split("T")[0],
       dayHeaders: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
@@ -155,6 +156,8 @@ const app = Vue.createApp({
           return this.totalSecondsLeft.toLocaleString();
         case "weeksLeft":
           return this.weeksLeft.toLocaleString();
+        case "workingWeeks":
+          return this.workingWeeksLeft.toLocaleString();
         default:
           return 0;
       }
@@ -451,6 +454,7 @@ const app = Vue.createApp({
       this.totalHoursLeft = totalDays * 24;
       this.totalSecondsLeft = this.totalHoursLeft * 3600;
       this.weeksLeft = Math.floor(totalDays / 7);
+      this.workingWeeksLeft = Math.floor(workingDays / 5);
     },
     resetMetrics() {
       this.workingDaysLeft = 0;
@@ -459,6 +463,7 @@ const app = Vue.createApp({
       this.totalHoursLeft = 0;
       this.totalSecondsLeft = 0;
       this.weeksLeft = 0;
+      this.workingWeeksLeft = 0;
     },
     isWorkingDay(date, yearHolidaysSet) {
       if (!date || !(date instanceof Date)) return false;
