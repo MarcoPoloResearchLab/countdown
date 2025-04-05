@@ -117,6 +117,8 @@
             padding: 20px;
             border: 1px solid #ddd;
             border-radius: 5px;
+            overflow: hidden;
+            /* Important for measuring against */
         }
 
         .monthly-calendar {
@@ -143,10 +145,19 @@
         }
 
         .result {
+            /* Keep this as the maximum/default */
             font-size: 300px;
             text-align: center;
             margin-top: 10px;
             color: #4285F4;
+            /* --- Modify line-height --- */
+            /* From: line-height: 1; */
+            line-height: normal;
+            /* Or try 1.1 or 1.2 if 'normal' doesn't work */
+            /* Keep the rest */
+            overflow: hidden;
+            white-space: nowrap;
+            word-break: break-all;
         }
 
         .calendar-grid {
@@ -431,8 +442,9 @@
                 </div>
 
                 <div class="result-title">{{ metricLabel }}</div>
-                <div class="result">{{ displayValue }}</div>
+                <div class="result" ref="resultDisplay">{{ displayValue }}</div>
             </div>
+
 
             <!-- Right Side: Monthly Calendar -->
             <div class="monthly-calendar">
