@@ -217,6 +217,13 @@ const app = Vue.createApp({
       },
       deep: true,
     },
+    // Add watcher for displayValue
+    displayValue(newValue, oldValue) {
+      // Ensure DOM is updated before adjusting font size
+      this.$nextTick(() => {
+        this.adjustResultFontSize();
+      });
+    },
   },
   methods: {
     formatDateToYMD(date) {
@@ -226,7 +233,6 @@ const app = Vue.createApp({
       const day = ("0" + date.getDate()).slice(-2);
       return `${year}-${month}-${day}`;
     },
-    // --- Keep robust parseDateStringToLocal ---
     parseDateStringToLocal(dateStr) {
       if (!dateStr || typeof dateStr !== "string") return null;
       try {
@@ -455,6 +461,9 @@ const app = Vue.createApp({
       this.totalSecondsLeft = this.totalHoursLeft * 3600;
       this.weeksLeft = Math.floor(totalDays / 7);
       this.workingWeeksLeft = Math.floor(workingDays / 5);
+      this.$nextTick(() => {
+        this.adjustResultFontSize();
+      });
     },
     resetMetrics() {
       this.workingDaysLeft = 0;
@@ -705,6 +714,47 @@ const app = Vue.createApp({
       }
       return days;
     },
+    adjustResultFontSize() {
+      const resultEl = this.$refs.resultDisplay;
+      const containerEl = resultEl?.closest(".form-container");
+
+      if (!resultEl || !containerEl) {
+        console.warn(
+          "Could not find result or container element for font scaling."
+        );
+        return;
+      }
+
+      resultEl.style.fontSize = ""; // Reset
+
+      requestAnimationFrame(() => {
+        const maxFontSize = 300;
+        const minFontSize = 10;
+        // Introduce a small buffer (e.g., 2 pixels)
+        const widthBuffer = 2;
+        let currentFontSize = maxFontSize;
+        resultEl.style.fontSize = `${currentFontSize}px`;
+
+        while (
+          resultEl.scrollWidth > containerEl.clientWidth - widthBuffer &&
+          currentFontSize > minFontSize
+        ) {
+          currentFontSize = Math.max(
+            minFontSize,
+            Math.floor(currentFontSize * 0.9)
+          );
+          resultEl.style.fontSize = `${currentFontSize}px`;
+          if (currentFontSize <= minFontSize) break;
+        }
+
+        if (
+          resultEl.scrollWidth > containerEl.clientWidth - widthBuffer &&
+          currentFontSize <= minFontSize
+        ) {
+          resultEl.style.fontSize = `${minFontSize}px`;
+        }
+      });
+    },
   },
   mounted() {
     const savedUser = localStorage.getItem("user");
@@ -729,6 +779,10 @@ const app = Vue.createApp({
         }
       }, 8000);
     }
+    // Ensure font size is adjusted after initial data load/restore
+    this.$nextTick(() => {
+      this.adjustResultFontSize();
+    });
   },
   beforeUnmount() {
     if (this.googleInitInterval) clearInterval(this.googleInitInterval);
