@@ -1,13 +1,13 @@
 # Countdown Calendar
 
-The calendar capable of countdown to a designated date.
+The calendar is capable of countdown to a designated date.
 
 ## Getting Started
 
 ### Prerequisites
 
 This project is built using plain HTML, CSS, and JavaScript, so no additional dependencies are required. However, to run
-the application locally you must serve the files over HTTP (browsers often restrict Web Worker usage when using the
+the application locally, you must serve the files over HTTP (browsers often restrict Web Worker usage when using the
 `file://` protocol).
 
 ### Running Locally
@@ -16,9 +16,11 @@ the application locally you must serve the files over HTTP (browsers often restr
 
 2. **Serve the files using a simple HTTP server.** For example, if you have Python installed, you can run:
 
-      ```sh
-      python3 -m http.server 8080
-      ```
+```sh
+python3 -m http.server 8080
+```
+
+Better yet, use a tool like [gHTTP](https://www.github.com/temirov/gHTTP).
 
 3. **Open your browser** and navigate to: http://localhost:8080
 
