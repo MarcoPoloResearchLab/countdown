@@ -20,7 +20,7 @@ the application locally, you must serve the files over HTTP (browsers often rest
 python3 -m http.server 8080
 ```
 
-Better yet, use a tool like [gHTTP](https://www.github.com/temirov/gHTTP).
+Better yet, use a tool like [gHTTP](https://www.github.com/tyemirov/gHTTP).
 
 3. **Open your browser** and navigate to: http://localhost:8080
 
